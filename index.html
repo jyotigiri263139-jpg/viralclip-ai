@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ViralClip AI</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- HEADER -->
+        <h1>🎬 ViralClip AI</h1>
+
+        <p class="subtitle">
+            Turn your long videos into viral short clips 🚀
+        </p>
+
+
+        <!-- VIDEO UPLOAD -->
+        <div class="upload-box">
+
+            <div class="icon">📤</div>
+
+            <h2>Upload Your Video</h2>
+
+            <p>Select a video from your computer</p>
+
+            <input
+                type="file"
+                id="videoInput"
+                accept="video/*"
+            >
+
+            <label
+                for="videoInput"
+                class="upload-btn"
+            >
+                Choose Video
+            </label>
+
+            <p id="fileName"></p>
+
+        </div>
+
+
+        <!-- YOUTUBE LINK -->
+        <div class="youtube-box">
+
+            <div class="youtube-icon">
+                🔗
+            </div>
+
+            <h2>Or Use YouTube Video</h2>
+
+            <p>
+                Paste a YouTube video link
+            </p>
+
+            <input
+                type="text"
+                id="youtubeUrl"
+                placeholder="https://www.youtube.com/watch?v=..."
+                autocomplete="off"
+            >
+
+            <button
+                type="button"
+                id="youtubeBtn"
+            >
+                Use YouTube Video
+            </button>
+
+            <p id="youtubeStatus"></p>
+
+        </div>
+
+
+        <!-- VIDEO PREVIEW -->
+        <div
+            id="previewBox"
+            class="preview-box"
+        >
+
+            <h2>Video Preview</h2>
+
+            <video
+                id="videoPreview"
+                controls
+                playsinline
+            ></video>
+
+            <button
+                type="button"
+                id="generateBtn"
+            >
+                🚀 Generate Viral Clips
+            </button>
+
+        </div>
+
+
+        <!-- PROCESSING -->
+        <div
+            id="loading"
+            class="loading"
+            style="display: none;"
+        >
+
+            <div class="spinner"></div>
+
+            <h2 id="loadingTitle">
+                🤖 AI is analyzing your video...
+            </h2>
+
+            <p id="loadingText">
+                Finding the most interesting moments...
+            </p>
+
+        </div>
+
+
+        <!-- GENERATED CLIPS -->
+        <div
+            id="clipsSection"
+            class="clips-section"
+            style="display: none;"
+        >
+
+            <h2>🔥 Your Viral Clips</h2>
+
+            <p id="clipsMessage"></p>
+
+            <div id="clipsContainer"></div>
+
+        </div>
+
+    </div>
+
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
