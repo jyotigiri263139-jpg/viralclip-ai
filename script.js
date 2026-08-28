@@ -37,7 +37,7 @@ const clipsMessage =
 // =====================================================
 
 const YOUTUBE_PROCESSOR =
-    "https://burst-rfc-club-friend.trycloudflare.com";
+    "https://foundation-member-financing-variations.trycloudflare.com";
 
 
 // =====================================================
@@ -57,53 +57,40 @@ if (videoInput) {
                 return;
             }
 
-
             fileName.textContent =
                 "Selected: " + file.name;
-
 
             const videoURL =
                 URL.createObjectURL(file);
 
-
             videoPreview.src =
                 videoURL;
 
-
             videoPreview.load();
-
 
             previewBox.style.display =
                 "block";
 
-
             loading.style.display =
                 "none";
-
 
             clipsSection.style.display =
                 "none";
 
-
             clipsContainer.innerHTML =
                 "";
-
 
             clipsMessage.textContent =
                 "";
 
-
             generateBtn.disabled =
                 false;
-
 
             generateBtn.textContent =
                 "🚀 Generate Viral Clips";
 
-
             generateBtn.style.opacity =
                 "1";
-
 
             generateBtn.style.cursor =
                 "pointer";
@@ -139,7 +126,6 @@ if (youtubeBtn) {
         async function (event) {
 
             event.preventDefault();
-
 
             const url =
                 youtubeUrl.value.trim();
@@ -177,10 +163,8 @@ if (youtubeBtn) {
             youtubeBtn.disabled =
                 true;
 
-
             youtubeBtn.textContent =
                 "⏳ Processing...";
-
 
             youtubeStatus.textContent =
                 "⬇️ Processing YouTube video...";
@@ -193,14 +177,11 @@ if (youtubeBtn) {
             loading.style.display =
                 "block";
 
-
             loadingTitle.textContent =
                 "⬇️ Processing YouTube video...";
 
-
             loadingText.textContent =
                 "Downloading video and creating clips...";
-
 
             clipsSection.style.display =
                 "none";
@@ -209,12 +190,11 @@ if (youtubeBtn) {
             try {
 
                 // =====================================
-                // FORM
+                // FORM DATA
                 // =====================================
 
                 const formData =
                     new FormData();
-
 
                 formData.append(
                     "url",
@@ -223,7 +203,7 @@ if (youtubeBtn) {
 
 
                 // =====================================
-                // SEND TO LAPTOP
+                // SEND TO LAPTOP THROUGH CLOUDFLARE
                 // =====================================
 
                 const response =
@@ -248,7 +228,7 @@ if (youtubeBtn) {
 
 
                 // =====================================
-                // ERROR
+                // RESPONSE ERROR
                 // =====================================
 
                 if (!response.ok) {
@@ -262,7 +242,6 @@ if (youtubeBtn) {
                         const errorData =
                             JSON.parse(text);
 
-
                         errorMessage =
                             errorData.message ||
                             errorMessage;
@@ -270,7 +249,6 @@ if (youtubeBtn) {
                     } catch (e) {
 
                         if (text) {
-
                             errorMessage =
                                 text;
                         }
@@ -307,7 +285,7 @@ if (youtubeBtn) {
 
 
                 // =====================================
-                // READY
+                // SUCCESS
                 // =====================================
 
                 loadingTitle.textContent =
@@ -315,11 +293,11 @@ if (youtubeBtn) {
 
 
                 loadingText.textContent =
-                    "Your clips have been created 🎬";
+                    "Your short clips have been created 🎬";
 
 
                 // =====================================
-                // FIX CLIP URLS
+                // CONVERT RELATIVE CLIP URLS
                 // =====================================
 
                 const youtubeClips =
@@ -335,7 +313,7 @@ if (youtubeBtn) {
 
 
                 // =====================================
-                // SHOW
+                // SHOW CLIPS
                 // =====================================
 
                 showClips(
@@ -385,7 +363,7 @@ if (youtubeBtn) {
 
 
 // =====================================================
-// COMPUTER UPLOAD
+// COMPUTER VIDEO UPLOAD
 // =====================================================
 
 async function uploadVideoToBackend(
@@ -394,7 +372,6 @@ async function uploadVideoToBackend(
 
     const formData =
         new FormData();
-
 
     formData.append(
         "file",
@@ -440,7 +417,6 @@ async function uploadVideoToBackend(
             const data =
                 JSON.parse(text);
 
-
             message =
                 data.message ||
                 message;
@@ -448,7 +424,6 @@ async function uploadVideoToBackend(
         } catch (e) {
 
             if (text) {
-
                 message =
                     text;
             }
@@ -498,7 +473,7 @@ function showClips(
 
 
             // =====================================
-            // ACTUAL DURATION
+            // DURATION
             // =====================================
 
             let durationText =
@@ -557,10 +532,6 @@ function showClips(
                     rgba(0,0,0,0.08);
             `;
 
-
-            // =====================================
-            // HTML
-            // =====================================
 
             card.innerHTML = `
                 <h3>
@@ -697,20 +668,17 @@ if (generateBtn) {
 
 
             // =====================================
-            // BUTTON
+            // BUTTON STATE
             // =====================================
 
             generateBtn.disabled =
                 true;
 
-
             generateBtn.textContent =
                 "⏳ Processing...";
 
-
             generateBtn.style.opacity =
                 "0.6";
-
 
             generateBtn.style.cursor =
                 "not-allowed";
@@ -723,14 +691,11 @@ if (generateBtn) {
             loading.style.display =
                 "block";
 
-
             loadingTitle.textContent =
                 "📤 Uploading video...";
 
-
             loadingText.textContent =
                 "Creating your dynamic clips...";
-
 
             clipsSection.style.display =
                 "none";
@@ -749,7 +714,7 @@ if (generateBtn) {
 
 
                 // =================================
-                // CHECK
+                // CHECK RESULT
                 // =================================
 
                 if (
@@ -790,20 +755,17 @@ if (generateBtn) {
 
 
                 // =================================
-                // RESET BUTTON
+                // BUTTON RESET
                 // =================================
 
                 generateBtn.disabled =
                     false;
 
-
                 generateBtn.textContent =
                     "🚀 Generate Again";
 
-
                 generateBtn.style.opacity =
                     "1";
-
 
                 generateBtn.style.cursor =
                     "pointer";
