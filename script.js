@@ -108,6 +108,13 @@ const youtubeStatus =
     );
 
 
+// Cloudflare Tunnel URL
+// Ye tumhare laptop ke local server ko
+// public internet se connect karta hai.
+const YOUTUBE_PROCESSOR =
+    "https://burst-rfc-club-friend.trycloudflare.com";
+
+
 if (youtubeBtn) {
 
     youtubeBtn.addEventListener(
@@ -119,6 +126,10 @@ if (youtubeBtn) {
             const url =
                 youtubeUrl.value.trim();
 
+
+            // =========================================
+            // CHECK URL
+            // =========================================
 
             if (!url) {
 
@@ -141,9 +152,9 @@ if (youtubeBtn) {
             }
 
 
-            // ========================================
-            // DISABLE YOUTUBE BUTTON
-            // ========================================
+            // =========================================
+            // BUTTON STATE
+            // =========================================
 
             youtubeBtn.disabled =
                 true;
@@ -152,17 +163,19 @@ if (youtubeBtn) {
                 "⏳ Processing...";
 
             youtubeStatus.textContent =
-                "⬇️ Downloading YouTube video...";
+                "⬇️ Processing YouTube video...";
 
 
             loading.style.display =
                 "block";
 
+
             loadingTitle.textContent =
-                "⬇️ Downloading YouTube video...";
+                "⬇️ Processing YouTube video...";
+
 
             loadingText.textContent =
-                "Please wait while we process the video.";
+                "Downloading and creating your clips...";
 
 
             clipsSection.style.display =
@@ -170,6 +183,10 @@ if (youtubeBtn) {
 
 
             try {
+
+                // =====================================
+                // FORM DATA
+                // =====================================
 
                 const formData =
                     new FormData();
@@ -180,9 +197,13 @@ if (youtubeBtn) {
                 );
 
 
+                // =====================================
+                // SEND TO LAPTOP
+                // =====================================
+
                 const response =
                     await fetch(
-                        "/youtube",
+                        YOUTUBE_PROCESSOR + "/youtube",
                         {
                             method: "POST",
                             body: formData
@@ -200,6 +221,10 @@ if (youtubeBtn) {
                 );
 
 
+                // =====================================
+                // ERROR
+                // =====================================
+
                 if (!response.ok) {
 
                     let errorMessage =
@@ -215,9 +240,11 @@ if (youtubeBtn) {
                             errorMessage;
 
                     } catch (e) {
-                        errorMessage =
-                            text ||
-                            errorMessage;
+
+                        if (text) {
+                            errorMessage =
+                                text;
+                        }
                     }
 
                     throw new Error(
@@ -225,6 +252,10 @@ if (youtubeBtn) {
                     );
                 }
 
+
+                // =====================================
+                // JSON
+                // =====================================
 
                 const result =
                     JSON.parse(text);
@@ -245,15 +276,41 @@ if (youtubeBtn) {
                 }
 
 
+                // =====================================
+                // READY
+                // =====================================
+
                 loadingTitle.textContent =
                     "✅ YouTube clips ready!";
 
-                loadingText.textContent =
-                    "Your short clips have been created 🎬";
 
+                loadingText.textContent =
+                    "Your clips have been created 🎬";
+
+
+                // =====================================
+                // CONVERT CLIP URLS
+                // =====================================
+
+                const youtubeClips =
+                    result.clips.map(
+                        function (clip) {
+
+                            return new URL(
+                                clip,
+                                YOUTUBE_PROCESSOR
+                            ).href;
+                        }
+                    );
+
+
+                // =====================================
+                // SHOW CLIPS
+                // =====================================
 
                 showClips(
-                    result.clips
+                    youtubeClips,
+                    result.moments || []
                 );
 
 
@@ -272,9 +329,11 @@ if (youtubeBtn) {
                 loadingTitle.textContent =
                     "❌ YouTube Error";
 
+
                 loadingText.textContent =
                     error.message ||
                     "YouTube processing failed.";
+
 
                 youtubeStatus.textContent =
                     error.message ||
@@ -285,6 +344,7 @@ if (youtubeBtn) {
 
                 youtubeBtn.disabled =
                     false;
+
 
                 youtubeBtn.textContent =
                     "Use YouTube Video";
@@ -305,6 +365,7 @@ async function uploadVideoToBackend(
 
     const formData =
         new FormData();
+
 
     formData.append(
         "file",
@@ -331,17 +392,23 @@ async function uploadVideoToBackend(
         response.status
     );
 
+
     console.log(
         "Backend response:",
         text
     );
 
 
+    // =========================================
+    // ERROR
+    // =========================================
+
     if (!response.ok) {
 
         let message =
             "Backend error " +
             response.status;
+
 
         try {
 
@@ -355,16 +422,22 @@ async function uploadVideoToBackend(
         } catch (e) {
 
             if (text) {
+
                 message =
                     text;
             }
         }
+
 
         throw new Error(
             message
         );
     }
 
+
+    // =========================================
+    // JSON
+    // =========================================
 
     try {
 
@@ -383,7 +456,10 @@ async function uploadVideoToBackend(
 // SHOW CLIPS
 // =====================================================
 
-function showClips(clips) {
+function showClips(
+    clips,
+    moments = []
+) {
 
     clipsContainer.innerHTML =
         "";
@@ -398,6 +474,47 @@ function showClips(clips) {
             const clipURL =
                 clip;
 
+
+            // =====================================
+            // DURATION
+            // =====================================
+
+            let durationText =
+                "Dynamic duration";
+
+
+            if (moments[index]) {
+
+                const start =
+                    Number(
+                        moments[index].start || 0
+                    );
+
+
+                const end =
+                    Number(
+                        moments[index].end || 0
+                    );
+
+
+                const duration =
+                    Math.max(
+                        0,
+                        end - start
+                    );
+
+
+                if (duration > 0) {
+
+                    durationText =
+                        `${duration.toFixed(1)} seconds`;
+                }
+            }
+
+
+            // =====================================
+            // CARD
+            // =====================================
 
             const card =
                 document.createElement(
@@ -417,6 +534,10 @@ function showClips(clips) {
             `;
 
 
+            // =====================================
+            // CARD HTML
+            // =====================================
+
             card.innerHTML = `
                 <h3>
                     🔥 Viral Clip ${index + 1}
@@ -426,7 +547,7 @@ function showClips(clips) {
                     color:#666;
                     margin-top:8px;
                 ">
-                    Short clip ready 🎬
+                    🎬 ${durationText}
                 </p>
 
                 <video
@@ -490,19 +611,26 @@ function showClips(clips) {
             clipsContainer.appendChild(
                 card
             );
-
         }
     );
 
 
+    // =====================================
+    // MESSAGE
+    // =====================================
+
     clipsMessage.textContent =
         clips.length +
-        " clips successfully created 🎬";
+        " dynamic clips successfully created 🎬";
 
 
     clipsSection.style.display =
         "block";
 
+
+    // =====================================
+    // SCROLL
+    // =====================================
 
     setTimeout(
         function () {
@@ -528,7 +656,10 @@ generateBtn.addEventListener(
         event.preventDefault();
 
 
-        if (generateBtn.disabled) {
+        if (
+            generateBtn.disabled
+        ) {
+
             return;
         }
 
@@ -547,18 +678,29 @@ generateBtn.addEventListener(
         }
 
 
+        // =====================================
+        // BUTTON STATE
+        // =====================================
+
         generateBtn.disabled =
             true;
+
 
         generateBtn.textContent =
             "⏳ Processing...";
 
+
         generateBtn.style.opacity =
             "0.6";
+
 
         generateBtn.style.cursor =
             "not-allowed";
 
+
+        // =====================================
+        // LOADING
+        // =====================================
 
         loading.style.display =
             "block";
@@ -578,11 +720,19 @@ generateBtn.addEventListener(
 
         try {
 
+            // =====================================
+            // UPLOAD
+            // =====================================
+
             const result =
                 await uploadVideoToBackend(
                     file
                 );
 
+
+            // =====================================
+            // CHECK RESULT
+            // =====================================
 
             if (
                 !result ||
@@ -599,6 +749,10 @@ generateBtn.addEventListener(
             }
 
 
+            // =====================================
+            // READY
+            // =====================================
+
             loadingTitle.textContent =
                 "✅ Clips Ready!";
 
@@ -607,19 +761,31 @@ generateBtn.addEventListener(
                 "Your clips have been created 🎬";
 
 
+            // =====================================
+            // SHOW
+            // =====================================
+
             showClips(
-                result.clips
+                result.clips,
+                result.moments || []
             );
 
+
+            // =====================================
+            // BUTTON RESET
+            // =====================================
 
             generateBtn.disabled =
                 false;
 
+
             generateBtn.textContent =
                 "🚀 Generate Again";
 
+
             generateBtn.style.opacity =
                 "1";
+
 
             generateBtn.style.cursor =
                 "pointer";
@@ -645,11 +811,14 @@ generateBtn.addEventListener(
             generateBtn.disabled =
                 false;
 
+
             generateBtn.textContent =
                 "🚀 Try Again";
 
+
             generateBtn.style.opacity =
                 "1";
+
 
             generateBtn.style.cursor =
                 "pointer";
