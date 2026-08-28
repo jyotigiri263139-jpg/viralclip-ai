@@ -12,24 +12,29 @@ import glob
 import yt_dlp
 
 
+# =========================================================
+# APP
+# =========================================================
+
 app = FastAPI(title="ViralClip AI")
 
 
-# ============================================
+# =========================================================
 # CORS
-# ============================================
+# =========================================================
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# ============================================
+# =========================================================
 # FOLDERS
-# ============================================
+# =========================================================
 
 UPLOAD_FOLDER = "uploads"
 CLIPS_FOLDER = "clips"
@@ -38,9 +43,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(CLIPS_FOLDER, exist_ok=True)
 
 
-# ============================================
+# =========================================================
 # STATIC CLIPS
-# ============================================
+# =========================================================
 
 app.mount(
     "/clips",
@@ -49,9 +54,9 @@ app.mount(
 )
 
 
-# ============================================
-# WEBSITE
-# ============================================
+# =========================================================
+# WEBSITE FILES
+# =========================================================
 
 @app.get("/")
 def home():
@@ -74,9 +79,9 @@ def script_js():
     )
 
 
-# ============================================
+# =========================================================
 # HEALTH
-# ============================================
+# =========================================================
 
 @app.get("/health")
 def health():
@@ -87,9 +92,9 @@ def health():
     }
 
 
-# ============================================
-# GET VIDEO DURATION
-# ============================================
+# =========================================================
+# VIDEO DURATION
+# =========================================================
 
 def get_video_duration(video_path):
 
@@ -105,6 +110,7 @@ def get_video_duration(video_path):
     ]
 
     try:
+
         result = subprocess.run(
             command,
             capture_output=True,
@@ -113,22 +119,35 @@ def get_video_duration(video_path):
         )
 
         if result.returncode != 0:
+            print("❌ ffprobe error:")
+            print(result.stderr)
             return None
 
-        return float(result.stdout.strip())
+        value = result.stdout.strip()
 
-    except Exception:
+        if not value:
+            return None
+
+        return float(value)
+
+    except Exception as e:
+
+        print(
+            "❌ Duration error:",
+            e
+        )
+
         return None
 
 
-# ============================================
-# CREATE CLIP
-# ============================================
+# =========================================================
+# CREATE ONE CLIP
+# =========================================================
 
 def create_clip(
     video_path,
     start_time,
-    duration,
+    clip_duration,
     clip_number
 ):
 
@@ -145,25 +164,33 @@ def create_clip(
     command = [
         "ffmpeg",
         "-y",
+
         "-ss",
         str(start_time),
+
         "-i",
         video_path,
+
         "-t",
-        str(duration),
+        str(clip_duration),
+
         "-c:v",
         "libx264",
+
         "-preset",
         "ultrafast",
+
         "-c:a",
         "aac",
+
         output_path
     ]
 
     print(
-        f"🎬 Clip {clip_number}: "
-        f"{start_time:.1f}s - "
-        f"{start_time + duration:.1f}s"
+        f"🎬 Creating Clip {clip_number}: "
+        f"{start_time:.1f}s → "
+        f"{start_time + clip_duration:.1f}s "
+        f"({clip_duration:.1f}s)"
     )
 
     try:
@@ -176,142 +203,210 @@ def create_clip(
         )
 
         if result.returncode != 0:
-            print(result.stderr)
+
+            print(
+                "❌ FFmpeg error:"
+            )
+
+            print(
+                result.stderr
+            )
+
             return None
 
-        if not os.path.exists(output_path):
+        if not os.path.exists(
+            output_path
+        ):
+
+            print(
+                "❌ Clip was not created."
+            )
+
             return None
+
+        print(
+            f"✅ Clip {clip_number} ready"
+        )
 
         return output_name
+
+    except subprocess.TimeoutExpired:
+
+        print(
+            f"⏰ Clip {clip_number} timed out"
+        )
+
+        return None
 
     except Exception as e:
 
         print(
-            "❌ FFmpeg error:",
+            f"❌ Clip {clip_number} error:",
             e
         )
 
         return None
 
 
-# ============================================
-# DYNAMIC CLIP GENERATION
-# ============================================
+# =========================================================
+# DYNAMIC CLIP PLAN
+# =========================================================
 
-def generate_dynamic_clips(video_path):
+def build_clip_plan(video_duration):
+
+    # Very short video
+    if video_duration <= 20:
+
+        return [
+            {
+                "start": 0,
+                "duration": video_duration
+            }
+        ]
+
+
+    # 20-40 seconds
+    if video_duration <= 40:
+
+        part = video_duration / 2
+
+        return [
+            {
+                "start": 0,
+                "duration": part
+            },
+            {
+                "start": part,
+                "duration": video_duration - part
+            }
+        ]
+
+
+    # 40-90 seconds
+    if video_duration <= 90:
+
+        part = video_duration / 3
+
+        return [
+            {
+                "start": 0,
+                "duration": part
+            },
+            {
+                "start": part,
+                "duration": part
+            },
+            {
+                "start": part * 2,
+                "duration": (
+                    video_duration -
+                    part * 2
+                )
+            }
+        ]
+
+
+    # Longer videos
+    lengths = [
+        18,
+        24,
+        30,
+        22,
+        28,
+        20,
+        32,
+        25,
+        18,
+        30
+    ]
+
+    plan = []
+
+    cursor = 0
+    index = 0
+
+    while (
+        cursor < video_duration
+        and index < len(lengths)
+    ):
+
+        requested_length = lengths[index]
+
+        remaining = (
+            video_duration -
+            cursor
+        )
+
+        actual_length = min(
+            requested_length,
+            remaining
+        )
+
+        # Ignore tiny ending pieces
+        if actual_length >= 8:
+
+            plan.append({
+                "start": cursor,
+                "duration": actual_length
+            })
+
+        cursor += actual_length
+        index += 1
+
+    return plan
+
+
+# =========================================================
+# PROCESS VIDEO
+# =========================================================
+
+def process_video(video_path):
 
     duration = get_video_duration(
         video_path
     )
 
     if not duration:
+
         raise Exception(
-            "Video duration could not be detected."
+            "Could not detect video duration."
         )
 
     print(
-        f"⏱️ Video duration: {duration:.1f}s"
+        f"⏱️ Video duration: "
+        f"{duration:.1f} seconds"
+    )
+
+    plan = build_clip_plan(
+        duration
+    )
+
+    print(
+        f"🧠 Dynamic clip count: "
+        f"{len(plan)}"
     )
 
     clips = []
     moments = []
 
-    # ----------------------------------------
-    # Dynamic segment sizes
-    # ----------------------------------------
-
-    if duration <= 20:
-
-        segments = [
-            (0, duration)
-        ]
-
-    elif duration <= 40:
-
-        segments = [
-            (0, duration / 2),
-            (duration / 2, duration / 2)
-        ]
-
-    elif duration <= 90:
-
-        # 3 meaningful sections
-        part = duration / 3
-
-        segments = [
-            (0, part),
-            (part, part),
-            (part * 2, duration - part * 2)
-        ]
-
-    else:
-
-        # For longer videos, create
-        # variable-length sections.
-
-        segments = []
-
-        cursor = 0
-
-        index = 0
-
-        lengths = [
-            18,
-            24,
-            30,
-            22,
-            28,
-            20,
-            32,
-            25,
-            18,
-            30
-        ]
-
-        while (
-            cursor < duration
-            and index < len(lengths)
-        ):
-
-            length = lengths[index]
-
-            remaining = duration - cursor
-
-            actual_length = min(
-                length,
-                remaining
-            )
-
-            if actual_length >= 8:
-
-                segments.append(
-                    (
-                        cursor,
-                        actual_length
-                    )
-                )
-
-            cursor += actual_length
-            index += 1
-
-
-    # ----------------------------------------
-    # Create clips
-    # ----------------------------------------
-
-    for clip_number, (
-        start_time,
-        clip_duration
-    ) in enumerate(
-        segments,
+    for index, item in enumerate(
+        plan,
         start=1
     ):
 
+        start = float(
+            item["start"]
+        )
+
+        clip_duration = float(
+            item["duration"]
+        )
+
         output_name = create_clip(
             video_path,
-            start_time,
+            start,
             clip_duration,
-            clip_number
+            index
         )
 
         if output_name:
@@ -322,11 +417,11 @@ def generate_dynamic_clips(video_path):
 
             moments.append({
                 "start": round(
-                    start_time,
+                    start,
                     2
                 ),
                 "end": round(
-                    start_time + clip_duration,
+                    start + clip_duration,
                     2
                 ),
                 "score": 50,
@@ -338,9 +433,9 @@ def generate_dynamic_clips(video_path):
     return clips, moments
 
 
-# ============================================
-# COMPUTER UPLOAD
-# ============================================
+# =========================================================
+# COMPUTER VIDEO UPLOAD
+# =========================================================
 
 @app.post("/upload")
 async def upload_video(
@@ -370,8 +465,20 @@ async def upload_video(
     )
 
     print(
-        "\n📥 COMPUTER VIDEO:",
+        "\n===================================="
+    )
+
+    print(
+        "📥 COMPUTER VIDEO RECEIVED"
+    )
+
+    print(
+        "File:",
         original_name
+    )
+
+    print(
+        "===================================="
     )
 
     try:
@@ -387,7 +494,7 @@ async def upload_video(
             )
 
         clips, moments = (
-            generate_dynamic_clips(
+            process_video(
                 video_path
             )
         )
@@ -399,7 +506,8 @@ async def upload_video(
             "clips": clips,
             "moments": moments,
             "message": (
-                f"{len(clips)} dynamic clips created 🎬"
+                f"{len(clips)} "
+                f"dynamic clips created 🎬"
             )
         }
 
@@ -414,6 +522,7 @@ async def upload_video(
             status_code=500,
             content={
                 "success": False,
+                "source": "upload",
                 "message": str(e),
                 "clips": [],
                 "moments": []
@@ -421,9 +530,9 @@ async def upload_video(
         )
 
 
-# ============================================
-# YOUTUBE
-# ============================================
+# =========================================================
+# YOUTUBE VIDEO
+# =========================================================
 
 @app.post("/youtube")
 async def youtube_video(
@@ -433,15 +542,56 @@ async def youtube_video(
     url = url.strip()
 
     if not url:
+
         return JSONResponse(
             status_code=400,
             content={
                 "success": False,
-                "message": "Please enter a YouTube URL.",
+                "source": "youtube",
+                "message": (
+                    "Please enter a YouTube URL."
+                ),
                 "clips": [],
                 "moments": []
             }
         )
+
+    if (
+        "youtube.com" not in url
+        and
+        "youtu.be" not in url
+    ):
+
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "source": "youtube",
+                "message": (
+                    "Please enter a valid YouTube URL."
+                ),
+                "clips": [],
+                "moments": []
+            }
+        )
+
+
+    print(
+        "\n===================================="
+    )
+
+    print(
+        "🔗 YOUTUBE REQUEST"
+    )
+
+    print(
+        url
+    )
+
+    print(
+        "===================================="
+    )
+
 
     video_id = uuid.uuid4().hex
 
@@ -450,17 +600,31 @@ async def youtube_video(
         f"{video_id}.%(ext)s"
     )
 
+
     ydl_options = {
+
         "format": (
             "bv*[ext=mp4]+ba[ext=m4a]"
             "/b[ext=mp4]"
             "/b"
         ),
-        "outtmpl": output_template,
-        "merge_output_format": "mp4",
-        "noplaylist": True,
-        "quiet": False,
+
+        "outtmpl":
+            output_template,
+
+        "merge_output_format":
+            "mp4",
+
+        "noplaylist":
+            True,
+
+        "quiet":
+            False,
+
+        "no_warnings":
+            False,
     }
+
 
     try:
 
@@ -482,12 +646,14 @@ async def youtube_video(
                 or "YouTube Video"
             )
 
+
         possible_files = glob.glob(
             os.path.join(
                 UPLOAD_FOLDER,
                 f"{video_id}.*"
             )
         )
+
 
         video_files = [
             path
@@ -502,22 +668,37 @@ async def youtube_video(
             )
         ]
 
+
         if not video_files:
+
             raise Exception(
-                "Downloaded video file not found."
+                "Downloaded video file was not found."
             )
 
-        video_path = video_files[0]
 
-        print(
-            "✅ YouTube download complete."
+        video_path = (
+            video_files[0]
         )
 
+
+        print(
+            "✅ YouTube download completed."
+        )
+
+
         clips, moments = (
-            generate_dynamic_clips(
+            process_video(
                 video_path
             )
         )
+
+
+        if not clips:
+
+            raise Exception(
+                "No clips could be created."
+            )
+
 
         return {
             "success": True,
@@ -526,21 +707,50 @@ async def youtube_video(
             "clips": clips,
             "moments": moments,
             "message": (
-                f"{len(clips)} dynamic clips created 🎬"
+                f"{len(clips)} "
+                f"dynamic clips created 🎬"
             )
         }
+
+
+    except yt_dlp.utils.DownloadError as e:
+
+        print(
+            "❌ YouTube download error:"
+        )
+
+        print(e)
+
+
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "source": "youtube",
+                "message": (
+                    "YouTube download failed: "
+                    + str(e)
+                ),
+                "clips": [],
+                "moments": []
+            }
+        )
+
 
     except Exception as e:
 
         print(
-            "❌ YouTube processing error:",
-            e
+            "❌ YouTube processing error:"
         )
+
+        print(e)
+
 
         return JSONResponse(
             status_code=500,
             content={
                 "success": False,
+                "source": "youtube",
                 "message": str(e),
                 "clips": [],
                 "moments": []

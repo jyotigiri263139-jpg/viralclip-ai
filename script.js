@@ -33,59 +33,83 @@ const clipsMessage =
 
 
 // =====================================================
+// YOUTUBE PROCESSOR
+// =====================================================
+
+const YOUTUBE_PROCESSOR =
+    "https://burst-rfc-club-friend.trycloudflare.com";
+
+
+// =====================================================
 // VIDEO SELECT
 // =====================================================
 
-videoInput.addEventListener(
-    "change",
-    function () {
+if (videoInput) {
 
-        const file =
-            videoInput.files[0];
+    videoInput.addEventListener(
+        "change",
+        function () {
 
-        if (!file) {
-            return;
+            const file =
+                videoInput.files[0];
+
+            if (!file) {
+                return;
+            }
+
+
+            fileName.textContent =
+                "Selected: " + file.name;
+
+
+            const videoURL =
+                URL.createObjectURL(file);
+
+
+            videoPreview.src =
+                videoURL;
+
+
+            videoPreview.load();
+
+
+            previewBox.style.display =
+                "block";
+
+
+            loading.style.display =
+                "none";
+
+
+            clipsSection.style.display =
+                "none";
+
+
+            clipsContainer.innerHTML =
+                "";
+
+
+            clipsMessage.textContent =
+                "";
+
+
+            generateBtn.disabled =
+                false;
+
+
+            generateBtn.textContent =
+                "🚀 Generate Viral Clips";
+
+
+            generateBtn.style.opacity =
+                "1";
+
+
+            generateBtn.style.cursor =
+                "pointer";
         }
-
-        fileName.textContent =
-            "Selected: " + file.name;
-
-        const videoURL =
-            URL.createObjectURL(file);
-
-        videoPreview.src =
-            videoURL;
-
-        videoPreview.load();
-
-        previewBox.style.display =
-            "block";
-
-        loading.style.display =
-            "none";
-
-        clipsSection.style.display =
-            "none";
-
-        clipsContainer.innerHTML =
-            "";
-
-        clipsMessage.textContent =
-            "";
-
-        generateBtn.disabled =
-            false;
-
-        generateBtn.textContent =
-            "🚀 Generate Viral Clips";
-
-        generateBtn.style.opacity =
-            "1";
-
-        generateBtn.style.cursor =
-            "pointer";
-    }
-);
+    );
+}
 
 
 // =====================================================
@@ -108,13 +132,6 @@ const youtubeStatus =
     );
 
 
-// Cloudflare Tunnel URL
-// Ye tumhare laptop ke local server ko
-// public internet se connect karta hai.
-const YOUTUBE_PROCESSOR =
-    "https://burst-rfc-club-friend.trycloudflare.com";
-
-
 if (youtubeBtn) {
 
     youtubeBtn.addEventListener(
@@ -122,6 +139,7 @@ if (youtubeBtn) {
         async function (event) {
 
             event.preventDefault();
+
 
             const url =
                 youtubeUrl.value.trim();
@@ -153,18 +171,24 @@ if (youtubeBtn) {
 
 
             // =========================================
-            // BUTTON STATE
+            // BUTTON
             // =========================================
 
             youtubeBtn.disabled =
                 true;
 
+
             youtubeBtn.textContent =
                 "⏳ Processing...";
+
 
             youtubeStatus.textContent =
                 "⬇️ Processing YouTube video...";
 
+
+            // =========================================
+            // LOADING
+            // =========================================
 
             loading.style.display =
                 "block";
@@ -175,7 +199,7 @@ if (youtubeBtn) {
 
 
             loadingText.textContent =
-                "Downloading and creating your clips...";
+                "Downloading video and creating clips...";
 
 
             clipsSection.style.display =
@@ -185,11 +209,12 @@ if (youtubeBtn) {
             try {
 
                 // =====================================
-                // FORM DATA
+                // FORM
                 // =====================================
 
                 const formData =
                     new FormData();
+
 
                 formData.append(
                     "url",
@@ -203,7 +228,8 @@ if (youtubeBtn) {
 
                 const response =
                     await fetch(
-                        YOUTUBE_PROCESSOR + "/youtube",
+                        YOUTUBE_PROCESSOR +
+                        "/youtube",
                         {
                             method: "POST",
                             body: formData
@@ -230,10 +256,12 @@ if (youtubeBtn) {
                     let errorMessage =
                         "YouTube processing failed.";
 
+
                     try {
 
                         const errorData =
                             JSON.parse(text);
+
 
                         errorMessage =
                             errorData.message ||
@@ -242,10 +270,12 @@ if (youtubeBtn) {
                     } catch (e) {
 
                         if (text) {
+
                             errorMessage =
                                 text;
                         }
                     }
+
 
                     throw new Error(
                         errorMessage
@@ -289,7 +319,7 @@ if (youtubeBtn) {
 
 
                 // =====================================
-                // CONVERT CLIP URLS
+                // FIX CLIP URLS
                 // =====================================
 
                 const youtubeClips =
@@ -305,7 +335,7 @@ if (youtubeBtn) {
 
 
                 // =====================================
-                // SHOW CLIPS
+                // SHOW
                 // =====================================
 
                 showClips(
@@ -349,14 +379,13 @@ if (youtubeBtn) {
                 youtubeBtn.textContent =
                     "Use YouTube Video";
             }
-
         }
     );
 }
 
 
 // =====================================================
-// COMPUTER VIDEO UPLOAD
+// COMPUTER UPLOAD
 // =====================================================
 
 async function uploadVideoToBackend(
@@ -399,10 +428,6 @@ async function uploadVideoToBackend(
     );
 
 
-    // =========================================
-    // ERROR
-    // =========================================
-
     if (!response.ok) {
 
         let message =
@@ -414,6 +439,7 @@ async function uploadVideoToBackend(
 
             const data =
                 JSON.parse(text);
+
 
             message =
                 data.message ||
@@ -434,10 +460,6 @@ async function uploadVideoToBackend(
         );
     }
 
-
-    // =========================================
-    // JSON
-    // =========================================
 
     try {
 
@@ -476,7 +498,7 @@ function showClips(
 
 
             // =====================================
-            // DURATION
+            // ACTUAL DURATION
             // =====================================
 
             let durationText =
@@ -487,13 +509,15 @@ function showClips(
 
                 const start =
                     Number(
-                        moments[index].start || 0
+                        moments[index].start ||
+                        0
                     );
 
 
                 const end =
                     Number(
-                        moments[index].end || 0
+                        moments[index].end ||
+                        0
                     );
 
 
@@ -535,7 +559,7 @@ function showClips(
 
 
             // =====================================
-            // CARD HTML
+            // HTML
             // =====================================
 
             card.innerHTML = `
@@ -615,10 +639,6 @@ function showClips(
     );
 
 
-    // =====================================
-    // MESSAGE
-    // =====================================
-
     clipsMessage.textContent =
         clips.length +
         " dynamic clips successfully created 🎬";
@@ -627,10 +647,6 @@ function showClips(
     clipsSection.style.display =
         "block";
 
-
-    // =====================================
-    // SCROLL
-    // =====================================
 
     setTimeout(
         function () {
@@ -649,180 +665,182 @@ function showClips(
 // COMPUTER VIDEO GENERATE
 // =====================================================
 
-generateBtn.addEventListener(
-    "click",
-    async function (event) {
+if (generateBtn) {
 
-        event.preventDefault();
+    generateBtn.addEventListener(
+        "click",
+        async function (event) {
 
+            event.preventDefault();
 
-        if (
-            generateBtn.disabled
-        ) {
-
-            return;
-        }
-
-
-        const file =
-            videoInput.files[0];
-
-
-        if (!file) {
-
-            alert(
-                "Please select a video first."
-            );
-
-            return;
-        }
-
-
-        // =====================================
-        // BUTTON STATE
-        // =====================================
-
-        generateBtn.disabled =
-            true;
-
-
-        generateBtn.textContent =
-            "⏳ Processing...";
-
-
-        generateBtn.style.opacity =
-            "0.6";
-
-
-        generateBtn.style.cursor =
-            "not-allowed";
-
-
-        // =====================================
-        // LOADING
-        // =====================================
-
-        loading.style.display =
-            "block";
-
-
-        loadingTitle.textContent =
-            "📤 Uploading video...";
-
-
-        loadingText.textContent =
-            "Creating your short clips...";
-
-
-        clipsSection.style.display =
-            "none";
-
-
-        try {
-
-            // =====================================
-            // UPLOAD
-            // =====================================
-
-            const result =
-                await uploadVideoToBackend(
-                    file
-                );
-
-
-            // =====================================
-            // CHECK RESULT
-            // =====================================
 
             if (
-                !result ||
-                !Array.isArray(
-                    result.clips
-                ) ||
-                result.clips.length === 0
+                generateBtn.disabled
             ) {
 
-                throw new Error(
-                    result.message ||
-                    "No clips created."
+                return;
+            }
+
+
+            const file =
+                videoInput.files[0];
+
+
+            if (!file) {
+
+                alert(
+                    "Please select a video first."
                 );
+
+                return;
             }
 
 
             // =====================================
-            // READY
-            // =====================================
-
-            loadingTitle.textContent =
-                "✅ Clips Ready!";
-
-
-            loadingText.textContent =
-                "Your clips have been created 🎬";
-
-
-            // =====================================
-            // SHOW
-            // =====================================
-
-            showClips(
-                result.clips,
-                result.moments || []
-            );
-
-
-            // =====================================
-            // BUTTON RESET
+            // BUTTON
             // =====================================
 
             generateBtn.disabled =
-                false;
+                true;
 
 
             generateBtn.textContent =
-                "🚀 Generate Again";
+                "⏳ Processing...";
 
 
             generateBtn.style.opacity =
-                "1";
+                "0.6";
 
 
             generateBtn.style.cursor =
-                "pointer";
+                "not-allowed";
 
 
-        } catch (error) {
+            // =====================================
+            // LOADING
+            // =====================================
 
-            console.error(
-                "UPLOAD ERROR:",
-                error
-            );
+            loading.style.display =
+                "block";
 
 
             loadingTitle.textContent =
-                "❌ Error";
+                "📤 Uploading video...";
 
 
             loadingText.textContent =
-                error.message ||
-                "Something went wrong.";
+                "Creating your dynamic clips...";
 
 
-            generateBtn.disabled =
-                false;
+            clipsSection.style.display =
+                "none";
 
 
-            generateBtn.textContent =
-                "🚀 Try Again";
+            try {
+
+                // =================================
+                // UPLOAD
+                // =================================
+
+                const result =
+                    await uploadVideoToBackend(
+                        file
+                    );
 
 
-            generateBtn.style.opacity =
-                "1";
+                // =================================
+                // CHECK
+                // =================================
+
+                if (
+                    !result ||
+                    !Array.isArray(
+                        result.clips
+                    ) ||
+                    result.clips.length === 0
+                ) {
+
+                    throw new Error(
+                        result.message ||
+                        "No clips created."
+                    );
+                }
 
 
-            generateBtn.style.cursor =
-                "pointer";
+                // =================================
+                // READY
+                // =================================
+
+                loadingTitle.textContent =
+                    "✅ Clips Ready!";
+
+
+                loadingText.textContent =
+                    "Your dynamic clips have been created 🎬";
+
+
+                // =================================
+                // SHOW
+                // =================================
+
+                showClips(
+                    result.clips,
+                    result.moments || []
+                );
+
+
+                // =================================
+                // RESET BUTTON
+                // =================================
+
+                generateBtn.disabled =
+                    false;
+
+
+                generateBtn.textContent =
+                    "🚀 Generate Again";
+
+
+                generateBtn.style.opacity =
+                    "1";
+
+
+                generateBtn.style.cursor =
+                    "pointer";
+
+
+            } catch (error) {
+
+                console.error(
+                    "UPLOAD ERROR:",
+                    error
+                );
+
+
+                loadingTitle.textContent =
+                    "❌ Error";
+
+
+                loadingText.textContent =
+                    error.message ||
+                    "Something went wrong.";
+
+
+                generateBtn.disabled =
+                    false;
+
+
+                generateBtn.textContent =
+                    "🚀 Try Again";
+
+
+                generateBtn.style.opacity =
+                    "1";
+
+
+                generateBtn.style.cursor =
+                    "pointer";
+            }
         }
-
-    }
-);
+    );
+}
