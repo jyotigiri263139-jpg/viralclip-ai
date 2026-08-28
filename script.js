@@ -93,8 +93,10 @@ async function uploadVideoToBackend(file) {
 
     formData.append("file", file);
 
+    // IMPORTANT:
+    // Relative URL means same Render server.
     const response = await fetch(
-        "http://127.0.0.1:8000/upload",
+        "/upload",
         {
             method: "POST",
             body: formData
@@ -107,6 +109,7 @@ async function uploadVideoToBackend(file) {
     console.log("Backend response:", text);
 
     if (!response.ok) {
+
         throw new Error(
             "Backend error " +
             response.status +
@@ -116,17 +119,21 @@ async function uploadVideoToBackend(file) {
     }
 
     try {
+
         return JSON.parse(text);
+
     } catch (error) {
+
         throw new Error(
-            "Backend response JSON nahi hai: " + text
+            "Backend response JSON nahi hai: " +
+            text
         );
     }
 }
 
 
 // ================================
-// SHOW CLIPS
+// SHOW GENERATED CLIPS
 // ================================
 
 function showClips(clips) {
@@ -135,10 +142,12 @@ function showClips(clips) {
 
     clips.forEach(function (clip, index) {
 
-        const clipURL =
-            "http://127.0.0.1:8000" + clip;
+        // IMPORTANT:
+        // clip already contains /clips/filename.mp4
+        const clipURL = clip;
 
-        const card = document.createElement("div");
+        const card =
+            document.createElement("div");
 
         card.style.cssText = `
             background:white;
@@ -146,13 +155,14 @@ function showClips(clips) {
             padding:20px;
             border-radius:16px;
             text-align:center;
+            box-shadow:0 5px 20px rgba(0,0,0,0.08);
         `;
 
         card.innerHTML = `
             <h3>🔥 Viral Clip ${index + 1}</h3>
 
             <p style="color:#666;margin-top:8px;">
-                10 second short clip
+                Short clip ready 🎬
             </p>
 
             <video
@@ -212,15 +222,21 @@ function showClips(clips) {
         clipsContainer.appendChild(card);
     });
 
+
     clipsMessage.textContent =
-        clips.length + " clips successfully created 🎬";
+        clips.length +
+        " clips successfully created 🎬";
+
 
     clipsSection.style.display = "block";
 
+
     setTimeout(function () {
+
         clipsSection.scrollIntoView({
             behavior: "smooth"
         });
+
     }, 300);
 }
 
@@ -235,20 +251,39 @@ generateBtn.addEventListener(
 
         event.preventDefault();
 
+
         if (generateBtn.disabled) {
             return;
         }
 
+
         const file = videoInput.files[0];
 
+
         if (!file) {
-            alert("Please select a video first.");
+
+            alert(
+                "Please select a video first."
+            );
+
             return;
         }
 
+
+        // ================================
+        // PROCESSING
+        // ================================
+
         generateBtn.disabled = true;
-        generateBtn.textContent = "⏳ Processing...";
+
+        generateBtn.textContent =
+            "⏳ Processing...";
+
         generateBtn.style.opacity = "0.6";
+
+        generateBtn.style.cursor =
+            "not-allowed";
+
 
         loading.style.display = "block";
 
@@ -256,41 +291,75 @@ generateBtn.addEventListener(
             "📤 Uploading video...";
 
         loadingText.textContent =
-            "Please wait while clips are being created.";
+            "Creating your short clips...";
 
-        clipsSection.style.display = "none";
+
+        clipsSection.style.display =
+            "none";
+
+        clipsContainer.innerHTML = "";
+
 
         try {
+
+            console.log(
+                "Uploading:",
+                file.name
+            );
+
 
             const result =
                 await uploadVideoToBackend(file);
 
-            console.log("RESULT:", result);
+
+            console.log(
+                "RESULT:",
+                result
+            );
+
 
             if (
                 !result ||
                 !Array.isArray(result.clips)
             ) {
+
                 throw new Error(
                     "Backend ne clips list nahi bheji."
                 );
             }
 
-            if (result.clips.length === 0) {
+
+            if (
+                result.clips.length === 0
+            ) {
 
                 loadingTitle.textContent =
                     "⚠️ No clips created";
 
                 loadingText.textContent =
+                    result.message ||
                     "Backend se 0 clips mili.";
 
-                generateBtn.disabled = false;
+
+                generateBtn.disabled =
+                    false;
+
                 generateBtn.textContent =
                     "🚀 Generate Viral Clips";
-                generateBtn.style.opacity = "1";
+
+                generateBtn.style.opacity =
+                    "1";
+
+                generateBtn.style.cursor =
+                    "pointer";
 
                 return;
             }
+
+
+            // ============================
+            // SUCCESS
+            // ============================
 
             loadingTitle.textContent =
                 "✅ Clips Ready!";
@@ -298,29 +367,53 @@ generateBtn.addEventListener(
             loadingText.textContent =
                 "Your clips have been created 🎬";
 
-            showClips(result.clips);
 
-            generateBtn.disabled = false;
+            showClips(
+                result.clips
+            );
+
+
+            generateBtn.disabled =
+                false;
+
             generateBtn.textContent =
                 "🚀 Generate Again";
-            generateBtn.style.opacity = "1";
-            generateBtn.style.cursor = "pointer";
+
+            generateBtn.style.opacity =
+                "1";
+
+            generateBtn.style.cursor =
+                "pointer";
+
 
         } catch (error) {
 
-            console.error("FINAL ERROR:", error);
+            console.error(
+                "FINAL ERROR:",
+                error
+            );
+
 
             loadingTitle.textContent =
                 "❌ Error";
 
             loadingText.textContent =
-                error.message;
+                error.message ||
+                "Something went wrong.";
 
-            generateBtn.disabled = false;
+
+            generateBtn.disabled =
+                false;
+
             generateBtn.textContent =
                 "🚀 Try Again";
-            generateBtn.style.opacity = "1";
-            generateBtn.style.cursor = "pointer";
+
+            generateBtn.style.opacity =
+                "1";
+
+            generateBtn.style.cursor =
+                "pointer";
         }
+
     }
 );
