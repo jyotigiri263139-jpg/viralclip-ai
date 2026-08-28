@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -7,18 +7,21 @@ import os
 import shutil
 import subprocess
 import uuid
+import glob
+
+import yt_dlp
 
 
-# ============================================
+# =========================================================
 # APP
-# ============================================
+# =========================================================
 
 app = FastAPI(title="ViralClip AI")
 
 
-# ============================================
+# =========================================================
 # CORS
-# ============================================
+# =========================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,9 +31,9 @@ app.add_middleware(
 )
 
 
-# ============================================
+# =========================================================
 # FOLDERS
-# ============================================
+# =========================================================
 
 UPLOAD_FOLDER = "uploads"
 CLIPS_FOLDER = "clips"
@@ -39,9 +42,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(CLIPS_FOLDER, exist_ok=True)
 
 
-# ============================================
-# SERVE GENERATED CLIPS
-# ============================================
+# =========================================================
+# STATIC CLIPS
+# =========================================================
 
 app.mount(
     "/clips",
@@ -50,18 +53,14 @@ app.mount(
 )
 
 
-# ============================================
-# HOME
-# ============================================
+# =========================================================
+# WEBSITE
+# =========================================================
 
 @app.get("/")
 def home():
     return FileResponse("index.html")
 
-
-# ============================================
-# CSS
-# ============================================
 
 @app.get("/style.css")
 def style_css():
@@ -71,10 +70,6 @@ def style_css():
     )
 
 
-# ============================================
-# JAVASCRIPT
-# ============================================
-
 @app.get("/script.js")
 def script_js():
     return FileResponse(
@@ -83,9 +78,9 @@ def script_js():
     )
 
 
-# ============================================
-# HEALTH CHECK
-# ============================================
+# =========================================================
+# HEALTH
+# =========================================================
 
 @app.get("/health")
 def health():
@@ -95,9 +90,9 @@ def health():
     }
 
 
-# ============================================
-# CREATE ONE CLIP
-# ============================================
+# =========================================================
+# CREATE CLIP WITH FFMPEG
+# =========================================================
 
 def create_clip(
     video_path,
@@ -105,6 +100,7 @@ def create_clip(
     duration,
     clip_number
 ):
+
     output_name = (
         f"{uuid.uuid4().hex}"
         f"_clip_{clip_number}.mp4"
@@ -133,27 +129,104 @@ def create_clip(
         output_path
     ]
 
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        timeout=120
+    print(
+        f"🎬 Creating Clip {clip_number}: "
+        f"{start_time}s - "
+        f"{start_time + duration}s"
     )
 
-    if result.returncode != 0:
-        print("FFmpeg error:")
-        print(result.stderr)
+    try:
+
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        if result.returncode != 0:
+
+            print("❌ FFmpeg error:")
+            print(result.stderr)
+
+            return None
+
+        if not os.path.exists(
+            output_path
+        ):
+
+            print(
+                "❌ Output file not created."
+            )
+
+            return None
+
+        print(
+            f"✅ Clip {clip_number} created"
+        )
+
+        return output_name
+
+    except subprocess.TimeoutExpired:
+
+        print(
+            f"⏰ Clip {clip_number} timed out"
+        )
+
         return None
 
-    if not os.path.exists(output_path):
+    except Exception as e:
+
+        print(
+            f"❌ Clip error: {e}"
+        )
+
         return None
 
-    return output_name
+
+# =========================================================
+# CREATE 3 CLIPS
+# =========================================================
+
+def generate_three_clips(video_path):
+
+    clips = []
+
+    # Current free version:
+    # first 30 sec -> 3 clips
+    clip_settings = [
+        (0, 10),
+        (10, 10),
+        (20, 10)
+    ]
+
+    for index, (
+        start_time,
+        duration
+    ) in enumerate(
+        clip_settings,
+        start=1
+    ):
+
+        output_name = create_clip(
+            video_path,
+            start_time,
+            duration,
+            index
+        )
+
+        if output_name:
+
+            clips.append(
+                f"/clips/{output_name}"
+            )
+
+    return clips
 
 
-# ============================================
-# UPLOAD VIDEO
-# ============================================
+# =========================================================
+# UPLOAD FROM COMPUTER
+# =========================================================
 
 @app.post("/upload")
 async def upload_video(
@@ -182,19 +255,13 @@ async def upload_video(
         unique_name
     )
 
-
-    print("\n==============================")
-    print("📥 VIDEO RECEIVED")
+    print("\n================================")
+    print("📥 COMPUTER VIDEO RECEIVED")
     print(
         "File:",
         original_name
     )
-    print("==============================")
-
-
-    # ========================================
-    # SAVE UPLOADED VIDEO
-    # ========================================
+    print("================================")
 
     try:
 
@@ -211,7 +278,7 @@ async def upload_video(
     except Exception as e:
 
         print(
-            "❌ Upload save error:",
+            "❌ Save error:",
             e
         )
 
@@ -224,92 +291,19 @@ async def upload_video(
             }
         )
 
-
     print(
         "✅ Video saved:",
         video_path
     )
 
-
-    # ========================================
-    # CREATE 3 SHORT CLIPS
-    # ========================================
-
-    # Lightweight free version:
-    # first 30 seconds in 3 sections
-
-    clip_settings = [
-        (0, 10),
-        (10, 10),
-        (20, 10)
-    ]
-
-
-    clips = []
-
-
-    for index, (
-        start_time,
-        duration
-    ) in enumerate(
-        clip_settings,
-        start=1
-    ):
-
-        print(
-            f"🎬 Creating Clip {index}: "
-            f"{start_time}s - "
-            f"{start_time + duration}s"
-        )
-
-
-        try:
-
-            output_name = create_clip(
-                video_path,
-                start_time,
-                duration,
-                index
-            )
-
-
-            if output_name:
-
-                clip_url = (
-                    f"/clips/{output_name}"
-                )
-
-                clips.append(
-                    clip_url
-                )
-
-                print(
-                    f"✅ Clip {index} created"
-                )
-
-            else:
-
-                print(
-                    f"❌ Clip {index} failed"
-                )
-
-        except Exception as e:
-
-            print(
-                f"❌ Clip {index} error:",
-                e
-            )
-
+    clips = generate_three_clips(
+        video_path
+    )
 
     print(
         "✅ TOTAL CLIPS:",
         len(clips)
     )
-
-    print(
-        "==============================\n"
-    )
-
 
     if not clips:
 
@@ -318,19 +312,227 @@ async def upload_video(
             content={
                 "success": False,
                 "message": (
-                    "No clips were created. "
-                    "Check FFmpeg installation."
+                    "No clips created. "
+                    "FFmpeg processing failed."
+                ),
+                "clips": []
+            }
+        )
+
+    return {
+        "success": True,
+        "source": "upload",
+        "filename": original_name,
+        "message": (
+            "Computer video processed 🎬"
+        ),
+        "clips": clips
+    }
+
+
+# =========================================================
+# DOWNLOAD FROM YOUTUBE
+# =========================================================
+
+@app.post("/youtube")
+async def youtube_video(
+    url: str = Form(...)
+):
+
+    url = url.strip()
+
+    print("\n================================")
+    print("🔗 YOUTUBE VIDEO REQUEST")
+    print("URL:", url)
+    print("================================")
+
+    if not url:
+
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "message": "Please enter a YouTube URL.",
+                "clips": []
+            }
+        )
+
+    if (
+        "youtube.com" not in url
+        and "youtu.be" not in url
+    ):
+
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "message": "Invalid YouTube URL.",
+                "clips": []
+            }
+        )
+
+    video_id = uuid.uuid4().hex
+
+    output_template = os.path.join(
+        UPLOAD_FOLDER,
+        f"{video_id}.%(ext)s"
+    )
+
+    ydl_options = {
+        "format": (
+            "bv*[ext=mp4]+ba[ext=m4a]"
+            "/b[ext=mp4]"
+            "/b"
+        ),
+        "outtmpl": output_template,
+        "merge_output_format": "mp4",
+        "noplaylist": True,
+        "quiet": False,
+        "no_warnings": False,
+    }
+
+    try:
+
+        print(
+            "⬇️ Downloading YouTube video..."
+        )
+
+        with yt_dlp.YoutubeDL(
+            ydl_options
+        ) as ydl:
+
+            info = ydl.extract_info(
+                url,
+                download=True
+            )
+
+            title = (
+                info.get("title")
+                or "YouTube Video"
+            )
+
+        # Find downloaded video
+        possible_files = []
+
+        for file_path in glob.glob(
+            os.path.join(
+                UPLOAD_FOLDER,
+                f"{video_id}.*"
+            )
+        ):
+
+            lower = file_path.lower()
+
+            if lower.endswith(
+                (
+                    ".mp4",
+                    ".webm",
+                    ".mkv",
+                    ".mov"
+                )
+            ):
+
+                possible_files.append(
+                    file_path
+                )
+
+        if not possible_files:
+
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "message": (
+                        "YouTube video download "
+                        "completed but file was not found."
+                    ),
+                    "clips": []
+                }
+            )
+
+        video_path = possible_files[0]
+
+        print(
+            "✅ YouTube video downloaded:",
+            video_path
+        )
+
+
+        # =====================================
+        # CREATE CLIPS
+        # =====================================
+
+        clips = generate_three_clips(
+            video_path
+        )
+
+
+        print(
+            "✅ TOTAL YOUTUBE CLIPS:",
+            len(clips)
+        )
+
+
+        if not clips:
+
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "message": (
+                        "YouTube video downloaded, "
+                        "but clips could not be created."
+                    ),
+                    "clips": []
+                }
+            )
+
+
+        return {
+            "success": True,
+            "source": "youtube",
+            "title": title,
+            "message": (
+                "YouTube video processed 🎬"
+            ),
+            "clips": clips
+        }
+
+
+    except yt_dlp.utils.DownloadError as e:
+
+        print(
+            "❌ YouTube download error:"
+        )
+
+        print(e)
+
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "message": (
+                    "YouTube video download failed: "
+                    + str(e)
                 ),
                 "clips": []
             }
         )
 
 
-    return {
-        "success": True,
-        "message": (
-            "Clips created successfully 🎬"
-        ),
-        "filename": original_name,
-        "clips": clips
-    }
+    except Exception as e:
+
+        print(
+            "❌ YouTube processing error:"
+        )
+
+        print(e)
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": str(e),
+                "clips": []
+            }
+        )
