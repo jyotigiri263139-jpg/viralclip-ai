@@ -1,41 +1,19 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 import os
 import shutil
 import subprocess
 import uuid
-import re
-
-import whisper
-from dotenv import load_dotenv
-
-
-# ============================================
-# LOAD ENV
-# ============================================
-
-load_dotenv()
-
-
-# ============================================
-# WHISPER MODEL
-# ============================================
-
-print("🤖 Loading Whisper model...")
-
-whisper_model = whisper.load_model("tiny")
-
-print("✅ Whisper model loaded.")
 
 
 # ============================================
 # APP
 # ============================================
 
-app = FastAPI()
+app = FastAPI(title="ViralClip AI")
 
 
 # ============================================
@@ -57,19 +35,12 @@ app.add_middleware(
 UPLOAD_FOLDER = "uploads"
 CLIPS_FOLDER = "clips"
 
-os.makedirs(
-    UPLOAD_FOLDER,
-    exist_ok=True
-)
-
-os.makedirs(
-    CLIPS_FOLDER,
-    exist_ok=True
-)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(CLIPS_FOLDER, exist_ok=True)
 
 
 # ============================================
-# SERVE CLIPS
+# SERVE GENERATED CLIPS
 # ============================================
 
 app.mount(
@@ -80,29 +51,32 @@ app.mount(
 
 
 # ============================================
-# WEBSITE
+# HOME
 # ============================================
 
 @app.get("/")
 def home():
+    return FileResponse("index.html")
 
-    return FileResponse(
-        "index.html"
-    )
 
+# ============================================
+# CSS
+# ============================================
 
 @app.get("/style.css")
-def css_file():
-
+def style_css():
     return FileResponse(
         "style.css",
         media_type="text/css"
     )
 
 
-@app.get("/script.js")
-def js_file():
+# ============================================
+# JAVASCRIPT
+# ============================================
 
+@app.get("/script.js")
+def script_js():
     return FileResponse(
         "script.js",
         media_type="application/javascript"
@@ -110,330 +84,54 @@ def js_file():
 
 
 # ============================================
-# FREE VIRAL MOMENT DETECTION
+# HEALTH CHECK
 # ============================================
 
-def find_free_viral_moments(segments):
-
-    if not segments:
-        return []
-
-
-    # Words/phrases often associated with
-    # interesting moments.
-    keywords = [
-        "लेकिन",
-        "क्यों",
-        "कैसे",
-        "सच",
-        "गलत",
-        "देखो",
-        "वाह",
-        "अरे",
-        "मतलब",
-        "कभी",
-        "पहली",
-        "पहले",
-        "सबसे",
-        "important",
-        "important",
-        "why",
-        "how",
-        "secret",
-        "best",
-        "never",
-        "always",
-        "wow",
-        "really",
-        "surprise"
-    ]
-
-
-    candidates = []
-
-
-    for segment in segments:
-
-        text = segment.get(
-            "text",
-            ""
-        ).strip()
-
-        start = float(
-            segment.get(
-                "start",
-                0
-            )
-        )
-
-        end = float(
-            segment.get(
-                "end",
-                start + 3
-            )
-        )
-
-
-        if not text:
-            continue
-
-
-        duration = max(
-            1,
-            end - start
-        )
-
-
-        words = text.split()
-
-        word_count = len(words)
-
-
-        # Basic score
-        score = 0
-
-
-        # More spoken content
-        score += min(
-            word_count * 2,
-            30
-        )
-
-
-        # Keyword bonus
-        lower_text = text.lower()
-
-        for keyword in keywords:
-
-            if keyword.lower() in lower_text:
-
-                score += 12
-
-
-        # Slight bonus for longer useful sentences
-        if word_count >= 8:
-            score += 10
-
-        if word_count >= 15:
-            score += 10
-
-
-        candidates.append({
-            "start": start,
-            "end": end,
-            "score": score,
-            "text": text
-        })
-
-
-    # Highest score first
-    candidates.sort(
-        key=lambda x: x["score"],
-        reverse=True
-    )
-
-
-    selected = []
-
-
-    # Select non-overlapping moments
-    for candidate in candidates:
-
-        start = candidate["start"]
-        end = candidate["end"]
-
-
-        # Make clip around the selected speech
-        clip_start = max(
-            0,
-            start - 3
-        )
-
-        clip_end = end + 5
-
-
-        # Keep clips between 8 and 20 seconds
-        duration = clip_end - clip_start
-
-
-        if duration < 8:
-
-            clip_end = clip_start + 8
-
-
-        if duration > 20:
-
-            clip_end = clip_start + 20
-
-
-        # Check overlap
-        overlap = False
-
-        for previous in selected:
-
-            if not (
-                clip_end <= previous["start"]
-                or
-                clip_start >= previous["end"]
-            ):
-
-                overlap = True
-                break
-
-
-        if overlap:
-            continue
-
-
-        selected.append({
-            "start": round(
-                clip_start,
-                2
-            ),
-            "end": round(
-                clip_end,
-                2
-            ),
-            "score": candidate["score"],
-            "reason": candidate["text"]
-        })
-
-
-        if len(selected) == 3:
-            break
-
-
-    # If not enough interesting moments,
-    # fill remaining clips from transcript
-    if len(selected) < 3:
-
-        for segment in segments:
-
-            start = float(
-                segment.get(
-                    "start",
-                    0
-                )
-            )
-
-            end = float(
-                segment.get(
-                    "end",
-                    start + 10
-                )
-            )
-
-
-            clip_start = max(
-                0,
-                start
-            )
-
-            clip_end = min(
-                end + 5,
-                clip_start + 15
-            )
-
-
-            overlap = False
-
-            for previous in selected:
-
-                if not (
-                    clip_end <= previous["start"]
-                    or
-                    clip_start >= previous["end"]
-                ):
-
-                    overlap = True
-                    break
-
-
-            if overlap:
-                continue
-
-
-            selected.append({
-                "start": round(
-                    clip_start,
-                    2
-                ),
-                "end": round(
-                    clip_end,
-                    2
-                ),
-                "score": 50,
-                "reason": "Interesting speech segment"
-            })
-
-
-            if len(selected) == 3:
-                break
-
-
-    selected.sort(
-        key=lambda x: x["score"],
-        reverse=True
-    )
-
-
-    return selected
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "message": "ViralClip AI is running 🚀"
+    }
 
 
 # ============================================
-# CREATE CLIP
+# CREATE ONE CLIP
 # ============================================
 
 def create_clip(
     video_path,
-    start,
-    end,
-    index
+    start_time,
+    duration,
+    clip_number
 ):
-
-    duration = max(
-        1,
-        end - start
-    )
-
-
     output_name = (
         f"{uuid.uuid4().hex}"
-        f"_viral_{index}.mp4"
+        f"_clip_{clip_number}.mp4"
     )
-
 
     output_path = os.path.join(
         CLIPS_FOLDER,
         output_name
     )
 
-
     command = [
         "ffmpeg",
         "-y",
-
         "-ss",
-        str(start),
-
+        str(start_time),
         "-i",
         video_path,
-
         "-t",
         str(duration),
-
         "-c:v",
         "libx264",
-
         "-preset",
         "ultrafast",
-
         "-c:a",
         "aac",
-
         output_path
     ]
-
 
     result = subprocess.run(
         command,
@@ -442,26 +140,13 @@ def create_clip(
         timeout=120
     )
 
-
     if result.returncode != 0:
-
-        print(
-            "❌ FFmpeg error:"
-        )
-
-        print(
-            result.stderr
-        )
-
+        print("FFmpeg error:")
+        print(result.stderr)
         return None
 
-
-    if not os.path.exists(
-        output_path
-    ):
-
+    if not os.path.exists(output_path):
         return None
-
 
     return output_name
 
@@ -480,7 +165,6 @@ async def upload_video(
         or "video.mp4"
     )
 
-
     extension = (
         os.path.splitext(
             original_name
@@ -488,12 +172,10 @@ async def upload_video(
         or ".mp4"
     )
 
-
     unique_name = (
         f"{uuid.uuid4().hex}"
         f"{extension}"
     )
-
 
     video_path = os.path.join(
         UPLOAD_FOLDER,
@@ -501,27 +183,45 @@ async def upload_video(
     )
 
 
-    print("\n================================")
+    print("\n==============================")
     print("📥 VIDEO RECEIVED")
     print(
         "File:",
         original_name
     )
-    print("================================")
+    print("==============================")
 
 
     # ========================================
-    # SAVE VIDEO
+    # SAVE UPLOADED VIDEO
     # ========================================
 
-    with open(
-        video_path,
-        "wb"
-    ) as buffer:
+    try:
 
-        shutil.copyfileobj(
-            file.file,
-            buffer
+        with open(
+            video_path,
+            "wb"
+        ) as buffer:
+
+            shutil.copyfileobj(
+                file.file,
+                buffer
+            )
+
+    except Exception as e:
+
+        print(
+            "❌ Upload save error:",
+            e
+        )
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": "Could not save video.",
+                "clips": []
+            }
         )
 
 
@@ -531,142 +231,106 @@ async def upload_video(
     )
 
 
-    try:
+    # ========================================
+    # CREATE 3 SHORT CLIPS
+    # ========================================
 
-        # ====================================
-        # WHISPER TRANSCRIPTION
-        # ====================================
+    # Lightweight free version:
+    # first 30 seconds in 3 sections
 
-        print(
-            "🎤 Transcribing video locally..."
-        )
-
-
-        transcript = whisper_model.transcribe(
-            video_path,
-            fp16=False
-        )
+    clip_settings = [
+        (0, 10),
+        (10, 10),
+        (20, 10)
+    ]
 
 
-        segments = transcript.get(
-            "segments",
-            []
-        )
+    clips = []
 
 
-        print(
-            "✅ Transcript created."
-        )
-
-
-        if not segments:
-
-            return {
-                "success": False,
-                "message": (
-                    "No speech detected."
-                ),
-                "clips": []
-            }
-
-
-        # ====================================
-        # FREE VIRAL SELECTION
-        # ====================================
+    for index, (
+        start_time,
+        duration
+    ) in enumerate(
+        clip_settings,
+        start=1
+    ):
 
         print(
-            "🧠 Finding interesting moments..."
+            f"🎬 Creating Clip {index}: "
+            f"{start_time}s - "
+            f"{start_time + duration}s"
         )
 
 
-        moments = find_free_viral_moments(
-            segments
-        )
-
-
-        print(
-            "✅ Selected moments:"
-        )
-
-        print(
-            moments
-        )
-
-
-        # ====================================
-        # CREATE CLIPS
-        # ====================================
-
-        clips = []
-        scores = []
-
-
-        for index, moment in enumerate(
-            moments,
-            start=1
-        ):
-
-            print(
-                f"🎬 Creating Clip {index}: "
-                f"{moment['start']}s - "
-                f"{moment['end']}s"
-            )
-
+        try:
 
             output_name = create_clip(
                 video_path,
-                moment["start"],
-                moment["end"],
+                start_time,
+                duration,
                 index
             )
 
 
             if output_name:
 
-                clips.append(
+                clip_url = (
                     f"/clips/{output_name}"
                 )
 
-                scores.append(
-                    moment["score"]
+                clips.append(
+                    clip_url
                 )
-
 
                 print(
                     f"✅ Clip {index} created"
                 )
 
+            else:
 
-        print(
-            "✅ TOTAL CLIPS:",
-            len(clips)
+                print(
+                    f"❌ Clip {index} failed"
+                )
+
+        except Exception as e:
+
+            print(
+                f"❌ Clip {index} error:",
+                e
+            )
+
+
+    print(
+        "✅ TOTAL CLIPS:",
+        len(clips)
+    )
+
+    print(
+        "==============================\n"
+    )
+
+
+    if not clips:
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": (
+                    "No clips were created. "
+                    "Check FFmpeg installation."
+                ),
+                "clips": []
+            }
         )
 
 
-        return {
-            "success": True,
-            "message": (
-                "Free AI-style viral clips "
-                "created 🎬🔥"
-            ),
-            "filename": original_name,
-            "clips": clips,
-            "scores": scores,
-            "moments": moments
-        }
-
-
-    except Exception as e:
-
-        print(
-            "❌ PROCESSING ERROR:"
-        )
-
-        print(e)
-
-
-        return {
-            "success": False,
-            "message": str(e),
-            "clips": []
-        }
+    return {
+        "success": True,
+        "message": (
+            "Clips created successfully 🎬"
+        ),
+        "filename": original_name,
+        "clips": clips
+    }
